@@ -14,10 +14,19 @@ mod config {
     "periodically_update": false
 }"#;
 
+    pub const CONF_FILE_PATH: &'static str =
+        concat!(env!("HOME"), "/.config/clash/test/clashup.json");
+    pub const CLASH_CONF_PATH: &'static str = concat!(env!("HOME"), "/.config/clash/config.yaml");
+    pub const CLASH_CONF_PATH_OLD: &'static str =
+        concat!(env!("HOME"), "/.config/clash/config.yaml.old");
+    pub const CACHE_FILE_PATH: &'static str = concat!(env!("HOME", "/.cache/clashup"));
+    pub const MMDB_VERSION_FILE_PATH: &'static str = concat!(env!("HOME"), "/.cache/clashup-mmdb");
+    pub const MMDB_FILE_PATH: &'static str = concat!(env!("HOME"), "/.config/clash/Country.mmdb");
+
     type Port = u16;
 
-    use std::io::Write;
     use serde::Deserialize;
+    use std::io::Write;
 
     #[derive(Deserialize, Debug)]
     pub struct Config {
@@ -27,11 +36,11 @@ mod config {
         mixed_port: Port,
         allow_lan: bool,
         external_controller: String,
-        subscribe_url: String,
+        pub subscribe_url: String,
         is_subscribe_banned: bool,
         custom_rules: Vec<String>,
-        mmdb_file_url: String,
-        mmdb_version_url: String,
+        pub mmdb_file_url: String,
+        pub mmdb_version_url: String,
         periodically_update: bool,
     }
 
@@ -53,10 +62,12 @@ mod config {
 
 #[test]
 fn test_load_config() {
-    let config = config::Config::from_path(std::path::Path::new("C:\\Users\\fffzlfk\\.config\\clash\\clashup.json")).unwrap();
+    let config = config::Config::from_path(std::path::Path::new(config::CONF_FILE_PATH)).unwrap();
     println!("{:?}", config);
 }
 
+use anyhow::Result;
+use log::info;
 use std::path::Path;
 
 #[derive(Debug)]
@@ -69,23 +80,35 @@ struct ClashUp<'a> {
     config: config::Config,
 }
 
-impl ClashUp<'static> {
-    fn new() -> Self {
+use std::collections::BTreeMap;
+
+impl<'a> ClashUp<'a> {
+    fn new() -> ClashUp<'a> {
         Self {
-            clash_conf_path: Path::new("~/.config/clash/config.yaml"),
-            clash_conf_old_path: Path::new("~/.config/clash/config.yaml.old"),
-            cache_file_path: Path::new("~/.cache/clashup"),
-            mmdb_version_file_path: Path::new("~/.cache/clashup-mmdb"),
-            mmdb_file_path: Path::new("~/.cache/clashup-mmdb"),
-            config: config::Config::from_path(Path::new("C:\\Users\\fffzlfk\\.config\\clash\\clashup.json")).unwrap(),
+            clash_conf_path: Path::new(config::CLASH_CONF_PATH),
+            clash_conf_old_path: Path::new(config::CLASH_CONF_PATH_OLD),
+            cache_file_path: Path::new(config::CACHE_FILE_PATH),
+            mmdb_version_file_path: Path::new(config::MMDB_VERSION_FILE_PATH),
+            mmdb_file_path: Path::new(config::CONF_FILE_PATH),
+            config: config::Config::from_path(Path::new(config::CONF_FILE_PATH)).unwrap(),
         }
+    }
+
+    fn download(&self) -> Result<BTreeMap<String, String>> {
+        let resp = reqwest::blocking::get(&self.config.subscribe_url)?.text()?;
+        let raw_clash_conf: BTreeMap<String, String> = serde_yaml::from_str(&resp)?;
+        Ok(raw_clash_conf)
+    }
+
+    fn update(&self) {
+        info!("Update Start");
     }
 }
 
 #[test]
 fn test_new_clash_up() {
     let clash_up = ClashUp::new();
-    println!("{:?}", clash_up);
+    println!("{:?}", clash_up.download());
 }
 
 fn main() {
